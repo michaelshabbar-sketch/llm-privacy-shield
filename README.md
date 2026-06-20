@@ -32,13 +32,20 @@ The LLM still solves your actual problem — it just never sees the sensitive va
 
 ## Two ways to use it
 
-1. **In-page button (seamless).** On ChatGPT, Claude, Gemini, Perplexity, Copilot,
-   DeepSeek, Grok, Mistral, and more, a floating **🛡️ Redact** button appears. Type
-   your prompt, click it (or press ⌘/Ctrl+Shift+R), review the safe version, and send.
+1. **In-page button.** On ChatGPT, Claude, Gemini, Perplexity, Copilot, DeepSeek,
+   Grok, Mistral, and more, a floating **🛡️ Redact** button appears. Type your prompt
+   and click it (or press ⌘/Ctrl+Shift+R). It then **verifies** the swap actually
+   happened:
+   - On sites with a normal input box, your prompt is replaced in place — review & send.
+   - Some editors (e.g. **ChatGPT's**) lock out programmatic edits. Rather than lie,
+     the button **copies the safe version to your clipboard and tells you to clear the
+     box and paste** (⌘/Ctrl+V) before sending. It will **never** claim "redacted" while
+     your real data is still in the box.
    The AI's reply is automatically decoded back to your real data on screen.
-2. **Universal scratchpad (works for ANY LLM/app).** Open the extension popup, paste
-   your prompt → get a safe copy → paste it into *any* AI. Paste the reply back → get
-   your real answer. Bulletproof, because the redaction happens before you ever copy.
+2. **Universal scratchpad (works for ANY LLM/app — the bulletproof path).** Open the
+   extension popup, paste your prompt → get a safe copy → paste it into *any* AI. Paste
+   the reply back → get your real answer. Always works, because redaction happens before
+   you ever copy.
 
 ## What it hides
 
