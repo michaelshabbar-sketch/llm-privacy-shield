@@ -3,6 +3,11 @@
  * redacts the current prompt box ON DEMAND (user-triggered = reliable, no race
  * that could leak), and decodes placeholders back to real values in the displayed
  * answer (display only — the cloud only ever received placeholders).
+ *
+ * IMPORTANT honesty rule: some editors (ChatGPT's ProseMirror, etc.) reject direct
+ * DOM edits. So after redacting we VERIFY the real values are actually gone from the
+ * box. If the swap didn't take, we DO NOT claim success — we copy the safe version to
+ * the clipboard and tell the user to paste it. The tool never gives false confidence.
  */
 (function () {
   "use strict";
@@ -21,20 +26,12 @@
     });
   } catch (e) {}
 
-  function persist() {
-    try { chrome.storage.local.set({ map }); } catch (e) {}
-  }
+  function persist() { try { chrome.storage.local.set({ map }); } catch (e) {} }
 
-  // ---- find the prompt input the user is typing in ----
   function findInput() {
     const a = document.activeElement;
     if (a && (a.tagName === "TEXTAREA" || a.isContentEditable)) return a;
-    // fall back to common LLM prompt boxes
-    const sel = [
-      "textarea",
-      'div[contenteditable="true"]',
-      '[data-testid="prompt-textarea"]',
-    ];
+    const sel = ['[data-testid="prompt-textarea"]', 'div[contenteditable="true"]', "textarea"];
     for (const s of sel) {
       const els = [...document.querySelectorAll(s)].filter((e) => e.offsetParent !== null);
       if (els.length) return els[els.length - 1];
@@ -42,18 +39,33 @@
     return null;
   }
 
-  function getText(el) {
-    return el.value !== undefined ? el.value : el.innerText;
-  }
+  const getText = (el) => (el.value !== undefined ? el.value : el.innerText);
 
   function setText(el, text) {
     if (el.value !== undefined) {
       const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
       setter.call(el, text);
       el.dispatchEvent(new Event("input", { bubbles: true }));
-    } else {
-      el.innerText = text;
-      el.dispatchEvent(new InputEvent("input", { bubbles: true }));
+      return;
+    }
+    // contenteditable (ProseMirror/Lexical/etc.): select-all then insertText so the
+    // editor's own model updates (plain innerText assignment gets reverted by React).
+    el.focus();
+    try {
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } catch (e) {}
+    let okc = false;
+    try { okc = document.execCommand("insertText", false, text); } catch (e) {}
+    if (!okc) {
+      try {
+        el.dispatchEvent(new InputEvent("beforeinput", { inputType: "insertReplacementText", data: text, bubbles: true, cancelable: true }));
+        el.textContent = text;
+        el.dispatchEvent(new InputEvent("input", { inputType: "insertText", data: text, bubbles: true }));
+      } catch (e) {}
     }
   }
 
@@ -61,28 +73,48 @@
     const t = document.createElement("div");
     t.textContent = msg;
     Object.assign(t.style, {
-      position: "fixed", bottom: "84px", right: "20px", zIndex: 2147483647,
+      position: "fixed", bottom: "84px", right: "20px", zIndex: 2147483647, maxWidth: "360px",
       background: bad ? "#b00020" : "#0a7d4f", color: "#fff", padding: "10px 14px",
       borderRadius: "10px", font: "600 14px system-ui", boxShadow: "0 4px 14px rgba(0,0,0,.3)",
     });
     document.body.appendChild(t);
-    setTimeout(() => t.remove(), 2600);
+    setTimeout(() => t.remove(), 4200);
   }
 
-  function redactCurrent() {
+  async function redactCurrent() {
     if (!enabled) { flash("Shield is OFF (turn on in the popup)", true); return; }
     const el = findInput();
     if (!el) { flash("No prompt box found — click into it first", true); return; }
     const before = getText(el);
     if (!before.trim()) { flash("Prompt box is empty", true); return; }
+
     const res = R.redact(before, { customTerms, map });
     map = res.map; persist();
+
+    if (res.redacted === before) { flash("Nothing private found — safe as-is"); return; }
+
     setText(el, res.redacted);
-    const n = R.summary(map).length;
-    flash(res.redacted === before ? "Nothing private found — safe as-is" : `Redacted ✓ ${n} item(s) hidden — review & send`);
+
+    // VERIFY the swap actually took — never claim success if real data remains.
+    await new Promise((r) => setTimeout(r, 120));
+    const after = getText(findInput() || el) || "";
+    const originals = Object.keys(map.byValue);
+    const leaked = originals.some((v) => v && after.includes(v));
+    const n = originals.length;
+
+    if (!leaked && after.indexOf("⟦") !== -1) {
+      flash(`Redacted ✓ ${n} item(s) hidden — review & send`);
+    } else {
+      // editor rejected the edit — fall back to clipboard, do NOT pretend it worked
+      try {
+        await navigator.clipboard.writeText(res.redacted);
+        flash("⚠ This editor blocked auto-replace. SAFE version COPIED — clear the box and paste (⌘/Ctrl+V) before sending.", true);
+      } catch (e) {
+        flash("⚠ Auto-replace blocked here. Use the extension popup to redact, then paste. Do NOT send the current text.", true);
+      }
+    }
   }
 
-  // ---- decode placeholders in displayed answers (local display only) ----
   function decodeNode(node) {
     if (!map.byPlaceholder || !Object.keys(map.byPlaceholder).length) return;
     const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, null);
@@ -102,7 +134,6 @@
   });
   try { obs.observe(document.body, { childList: true, subtree: true }); } catch (e) {}
 
-  // ---- floating button ----
   function addButton() {
     if (document.getElementById("llm-shield-btn")) return;
     const b = document.createElement("button");
@@ -121,7 +152,6 @@
   if (document.body) addButton();
   else document.addEventListener("DOMContentLoaded", addButton);
 
-  // keyboard shortcut: Ctrl/Cmd+Shift+R to redact current box
   document.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "R" || e.key === "r")) {
       e.preventDefault(); redactCurrent();
