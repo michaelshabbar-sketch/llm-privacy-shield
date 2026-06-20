@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  :root { --bg:#0f1419; --card:#1a2230; --fg:#f2f5f8; --muted:#9fb0c3; --green:#13a06a; --accent:#2f7df6; }
+  * { box-sizing: border-box; }
+  body { width: 420px; margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui; padding:16px; }
+  h1 { font-size:18px; margin:0 0 4px; display:flex; align-items:center; gap:8px; }
+  .sub { color:var(--muted); font-size:13px; margin:0 0 14px; }
+  textarea { width:100%; min-height:84px; background:var(--card); color:var(--fg); border:1px solid #2c3a4d;
+             border-radius:10px; padding:10px; font:15px/1.4 system-ui; resize:vertical; }
+  button { width:100%; border:none; border-radius:10px; padding:13px; font:700 16px system-ui; cursor:pointer; color:#fff; margin-top:8px; }
+  .primary { background:var(--green); }
+  .accent { background:var(--accent); }
+  .out { background:var(--card); border:1px solid #2c3a4d; border-radius:10px; padding:10px; min-height:48px;
+         white-space:pre-wrap; word-break:break-word; font-size:14px; margin-top:8px; }
+  label { font-size:13px; color:var(--muted); display:block; margin:14px 0 4px; }
+  .row { display:flex; align-items:center; gap:10px; margin:12px 0; }
+  .row input[type=checkbox]{ width:22px; height:22px; }
+  .note { color:var(--muted); font-size:12px; margin-top:6px; }
+  .tag { display:inline-block; background:#23324a; color:#cfe0f5; border-radius:6px; padding:1px 6px; font-size:12px; margin:2px; }
+  hr { border:none; border-top:1px solid #243044; margin:16px 0; }
+</style>
+</head>
+<body>
+  <h1>🛡️ LLM Privacy Shield</h1>
+  <p class="sub">Hide your private data before it ever reaches any LLM. The AI still answers — you get the real answer back, the cloud never sees your stuff.</p>
+
+  <div class="row">
+    <input type="checkbox" id="enabled" checked>
+    <label for="enabled" style="margin:0">Shield ON (in-page 🛡️ Redact button on ChatGPT, Claude, Gemini…)</label>
+  </div>
+
+  <hr>
+  <label for="inp">1) Paste your prompt — I’ll make a safe version</label>
+  <textarea id="inp" placeholder="Type or paste your prompt with real names, emails, account numbers…"></textarea>
+  <button class="primary" id="btnRedact">Make safe &amp; copy</button>
+  <div class="out" id="redOut" aria-live="polite"></div>
+  <div class="note" id="redInfo"></div>
+
+  <hr>
+  <label for="ans">2) Paste the LLM’s answer — I’ll put your real info back</label>
+  <textarea id="ans" placeholder="Paste the AI's reply here…"></textarea>
+  <button class="accent" id="btnDecode">Decode answer</button>
+  <div class="out" id="decOut" aria-live="polite"></div>
+
+  <hr>
+  <label for="terms">Always hide these (one per line: your name, employer, account #s…)</label>
+  <textarea id="terms" placeholder="Michael Shabbar&#10;Raytheon&#10;Account 12345"></textarea>
+  <button id="btnSaveTerms" style="background:#3a4660">Save my private terms</button>
+  <div class="note">Saved locally on your machine only. Never uploaded anywhere.</div>
+
+  <script src="redactor.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
